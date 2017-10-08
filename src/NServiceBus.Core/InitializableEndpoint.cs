@@ -69,7 +69,10 @@ namespace NServiceBus
 
             var username = GetInstallationUserName();
 
-            await receiving.CreateQueuesIfNecessary(username).ConfigureAwait(false);
+            if (settings.CreateQueues())
+            {
+                await receiving.CreateQueuesIfNecessary(username).ConfigureAwait(false);
+            }
 
             await RunInstallers(concreteTypes, username).ConfigureAwait(false);
 
