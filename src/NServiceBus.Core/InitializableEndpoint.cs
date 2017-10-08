@@ -43,6 +43,12 @@ namespace NServiceBus
 
             var transportInfrastructure = InitializeTransport();
 
+            var isSendOnlyEndpoint = settings.Get<bool>("Endpoint.SendOnly");
+            var receiving = new ReceiveComponent(isSendOnlyEndpoint, transportInfrastructure);
+
+
+            receiving.Initialize(settings);
+
             // use GetOrCreate to use of instances already created during EndpointConfiguration.
             var routing = new RoutingComponent(
                 settings.GetOrCreate<UnicastRoutingTable>(),
@@ -59,17 +65,12 @@ namespace NServiceBus
             container.ConfigureComponent(b => settings.Get<Notifications>(), DependencyLifecycle.SingleInstance);
 
             var username = GetInstallationUserName();
-            TransportReceiveInfrastructure receiveInfrastructure = null;
 
-            if (!settings.Get<bool>("Endpoint.SendOnly"))
-            {
-                receiveInfrastructure = transportInfrastructure.ConfigureReceiveInfrastructure();
-                await CreateQueuesIfNecessary(receiveInfrastructure, username).ConfigureAwait(false);
-            }
+            await receiving.CreateQueuesIfNecessary(username).ConfigureAwait(false);
 
             await RunInstallers(concreteTypes, username).ConfigureAwait(false);
 
-            var startableEndpoint = new StartableEndpoint(settings, builder, featureActivator, pipelineConfiguration, new EventAggregator(settings.Get<NotificationSubscriptions>()), transportInfrastructure, receiveInfrastructure, criticalError);
+            var startableEndpoint = new StartableEndpoint(settings, builder, featureActivator, pipelineConfiguration, new EventAggregator(settings.Get<NotificationSubscriptions>()), transportInfrastructure, receiving, criticalError);
             return startableEndpoint;
         }
 
