@@ -71,10 +71,11 @@ namespace NServiceBus
             var pipelineCache = new PipelineCache(builder, settings);
             var mainPipelineExecutor = new MainPipelineExecutor(builder, eventAggregator, pipelineCache, mainPipeline);
             var errorQueue = settings.ErrorQueueAddress();
+            var receiveInfrastructure = transportInfrastructure.ConfigureReceiveInfrastructure();
 
-            var receiveRuntime = await ReceiveComponentFactory.Initialize(receiveConfiguration,
+            var receiveComponent = await ReceiveComponentFactory.Initialize(receiveConfiguration,
                 settings.Get<QueueBindings>(),
-                transportInfrastructure.ConfigureReceiveInfrastructure(),
+                receiveInfrastructure,
                 mainPipelineExecutor,
                 eventAggregator,
                 builder,
@@ -85,14 +86,14 @@ namespace NServiceBus
 
             if (settings.CreateQueues())
             {
-                await receiveRuntime.CreateQueuesIfNecessary(username).ConfigureAwait(false);
+                await receiveComponent.CreateQueuesIfNecessary(username).ConfigureAwait(false);
             }
 
             await RunInstallers(concreteTypes, username).ConfigureAwait(false);
 
             var messageSession = new MessageSession(new RootContext(builder, pipelineCache, eventAggregator));
 
-            return new StartableEndpoint(settings, builder, featureActivator, transportInfrastructure, receiveRuntime, criticalError, messageSession);
+            return new StartableEndpoint(settings, builder, featureActivator, transportInfrastructure, receiveComponent, criticalError, messageSession);
         }
 
         TransportInfrastructure InitializeTransport()
