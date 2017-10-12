@@ -42,9 +42,9 @@ namespace NServiceBus
             var receivers = CreateReceivers(mainPipeline);
             await InitializeReceivers(receivers).ConfigureAwait(false);
 
-            await featureComponent.Start(messageSession).ConfigureAwait(false);
+            var startedFeatures = await featureComponent.Start(messageSession).ConfigureAwait(false);
 
-            var runningInstance = new RunningEndpointInstance(settings, builder, receivers, featureComponent, messageSession, transportInfrastructure);
+            var runningInstance = new RunningEndpointInstance(settings, builder, receivers, startedFeatures, messageSession, transportInfrastructure);
             // set the started endpoint on CriticalError to pass the endpoint to the critical error action
             criticalError.SetEndpoint(runningInstance);
 

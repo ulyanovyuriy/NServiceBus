@@ -55,9 +55,8 @@ namespace NServiceBus
             routing.Initialize(settings, transportInfrastructure, pipelineSettings);
 
             var featureConfigurationContext = new FeatureConfigurationContext(settings, container, pipelineSettings, routing);
-            var featureComponent = new FeatureComponent(settings, builder);
 
-            featureComponent.Initialize(concreteTypes, featureConfigurationContext);
+            var featureComponent = FeatureComponent.Initialize(settings, builder,concreteTypes, featureConfigurationContext);
 
             settings.PreventChanges();
 

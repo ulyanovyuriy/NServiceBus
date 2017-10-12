@@ -9,15 +9,16 @@ namespace NServiceBus.Features
 
     class FeatureComponent
     {
-        public FeatureComponent(SettingsHolder settings,IBuilder builder)
+        FeatureComponent(IBuilder builder, FeatureActivator featureActivator)
         {
-            this.settings = settings;
             this.builder = builder;
-             featureActivator = new FeatureActivator(settings);
+            this.featureActivator = featureActivator;
         }
 
-        public void Initialize(IEnumerable<Type> concreteTypes, FeatureConfigurationContext featureConfigurationContext)
+        public static FeatureComponent Initialize(SettingsHolder settings, IBuilder builder, IEnumerable<Type> concreteTypes, FeatureConfigurationContext featureConfigurationContext)
         {
+            var featureActivator = new FeatureActivator(settings);
+
             foreach (var type in concreteTypes.Where(t => IsFeature(t)))
             {
                 featureActivator.Add(type.Construct<Feature>());
@@ -25,17 +26,8 @@ namespace NServiceBus.Features
 
             var featureStats = featureActivator.SetupFeatures(featureConfigurationContext);
             settings.AddStartupDiagnosticsSection("Features", featureStats);
-        }
 
-        public Task Start(IMessageSession session)
-        {
-            messageSession = session;
-            return featureActivator.StartFeatures(builder, session);
-        }
-
-        public Task Stop()
-        {
-            return featureActivator.StartFeatures(builder, messageSession);
+            return new FeatureComponent(builder, featureActivator);
         }
 
         static bool IsFeature(Type type)
@@ -43,9 +35,14 @@ namespace NServiceBus.Features
             return typeof(Feature).IsAssignableFrom(type);
         }
 
-        SettingsHolder settings;
-        IBuilder builder;
+        public Task<RunningFeatures> Start(IMessageSession messageSession)
+        {
+            var runner = new FeatureRunner(builder, featureActivator.ActiveFeatures);
+
+            return runner.Start(messageSession);
+        }
+
         FeatureActivator featureActivator;
-        IMessageSession messageSession;
+        IBuilder builder;
     }
 }

@@ -20,7 +20,7 @@
                 new SettingsHolder(),
                 new FakeBuilder(),
                 new List<TransportReceiver>(),
-                new FeatureComponent(new SettingsHolder(),null),
+                new RunningFeatures(null,null),
                 new MessageSession(new RootContext(null, null, null)), new FakeTransportInfrastructure());
 
             await testee.Stop();

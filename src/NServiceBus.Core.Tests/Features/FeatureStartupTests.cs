@@ -2,33 +2,24 @@
 {
     using System;
     using System.Collections.Generic;
+    using System.Linq;
     using System.Threading.Tasks;
     using NServiceBus.Features;
     using NUnit.Framework;
     using ObjectBuilder;
-    using Settings;
 
     [TestFixture]
     public class FeatureStartupTests
     {
-        [SetUp]
-        public void Init()
-        {
-            settings = new SettingsHolder();
-            featureSettings = new FeatureActivator(settings);
-        }
-
         [Test]
-        public async Task Should_start_and_stop_features()
+        public async Task Should_start_and_stop_tasks()
         {
             var feature = new FeatureWithStartupTask();
 
-            featureSettings.Add(feature);
+            var featureRunner = CreateRunner(feature);
 
-            featureSettings.SetupFeatures(new TestableFeatureConfigurationContext());
-
-            await featureSettings.StartFeatures(null, null);
-            await featureSettings.StopFeatures(null);
+            var runningFeatures = await featureRunner.Start(null);
+            await runningFeatures.Stop();
 
             Assert.True(feature.TaskStarted);
             Assert.True(feature.TaskStopped);
@@ -39,12 +30,11 @@
         {
             var feature = new FeatureWithStartupTaskWhichIsDisposable();
 
-            featureSettings.Add(feature);
+            var featureRunner = CreateRunner(feature);
 
-            featureSettings.SetupFeatures(new TestableFeatureConfigurationContext());
 
-            await featureSettings.StartFeatures(null, null);
-            await featureSettings.StopFeatures(null);
+            var runningFeatures = await featureRunner.Start(null);
+            await runningFeatures.Stop();
 
             Assert.True(feature.TaskDisposed);
         }
@@ -54,12 +44,10 @@
         {
             var feature1 = new FeatureWithStartupTaskThatThrows(throwOnStart: true, throwOnStop: false);
             var feature2 = new FeatureWithStartupTaskThatThrows(throwOnStart: false, throwOnStop: false);
-            featureSettings.Add(feature1);
-            featureSettings.Add(feature2);
 
-            featureSettings.SetupFeatures(new TestableFeatureConfigurationContext());
+            var featureRunner = CreateRunner(feature1, feature2);
 
-            Assert.ThrowsAsync<InvalidOperationException>(async () => await featureSettings.StartFeatures(null, null));
+            Assert.ThrowsAsync<InvalidOperationException>(async () => await featureRunner.Start(null));
 
             Assert.False(feature1.TaskStarted && feature1.TaskStopped);
             Assert.False(feature2.TaskStarted && feature2.TaskStopped);
@@ -70,14 +58,13 @@
         {
             var feature1 = new FeatureWithStartupTaskThatThrows(throwOnStart: false, throwOnStop: false);
             var feature2 = new FeatureWithStartupTaskThatThrows(throwOnStart: false, throwOnStop: true);
-            featureSettings.Add(feature1);
-            featureSettings.Add(feature2);
 
-            featureSettings.SetupFeatures(new TestableFeatureConfigurationContext());
+            var featureRunner = CreateRunner(feature1, feature2);
 
-            await featureSettings.StartFeatures(null, null);
 
-            Assert.DoesNotThrowAsync(async () => await featureSettings.StopFeatures(null));
+            var runningFeatures = await featureRunner.Start(null);
+
+            Assert.DoesNotThrowAsync(async () => await runningFeatures.Stop());
             Assert.True(feature1.TaskStarted && feature1.TaskStopped);
             Assert.True(feature2.TaskStarted && !feature2.TaskStopped);
         }
@@ -86,18 +73,23 @@
         public async Task Should_dispose_feature_task_even_when_stop_throws()
         {
             var feature = new FeatureWithStartupTaskThatThrows(throwOnStart: false, throwOnStop: true);
-            featureSettings.Add(feature);
+            var featureRunner = CreateRunner(feature);
 
-            featureSettings.SetupFeatures(new TestableFeatureConfigurationContext());
+            var runningFeatures = await featureRunner.Start(null);
+            await runningFeatures.Stop();
 
-            await featureSettings.StartFeatures(null, null);
-
-            await featureSettings.StopFeatures(null);
             Assert.True(feature.TaskDisposed);
         }
+        static FeatureRunner CreateRunner(params Feature[] features)
+        {
+            var featureInfo = features.Select(f =>
+            {
+                return new FeatureActivator.FeatureInfo(f, null);
+            }).ToList();
 
-        private FeatureActivator featureSettings;
-        private SettingsHolder settings;
+            var featureRunner = new FeatureRunner(null, featureInfo);
+            return featureRunner;
+        }
 
         class FeatureWithStartupTask : TestFeature
         {

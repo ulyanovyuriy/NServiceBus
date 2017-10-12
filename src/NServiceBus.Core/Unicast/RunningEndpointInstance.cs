@@ -13,12 +13,12 @@ namespace NServiceBus
 
     class RunningEndpointInstance : IEndpointInstance
     {
-        public RunningEndpointInstance(SettingsHolder settings, IBuilder builder, List<TransportReceiver> receivers, FeatureComponent featureComponent, IMessageSession messageSession, TransportInfrastructure transportInfrastructure)
+        public RunningEndpointInstance(SettingsHolder settings, IBuilder builder, List<TransportReceiver> receivers, RunningFeatures runningFeatures, IMessageSession messageSession, TransportInfrastructure transportInfrastructure)
         {
             this.settings = settings;
             this.builder = builder;
             this.receivers = receivers;
-            this.featureComponent = featureComponent;
+            this.runningFeatures = runningFeatures;
             this.messageSession = messageSession;
             this.transportInfrastructure = transportInfrastructure;
         }
@@ -43,7 +43,7 @@ namespace NServiceBus
 
                 // Cannot throw by design
                 await StopReceivers().ConfigureAwait(false);
-                await featureComponent.Stop().ConfigureAwait(false);
+                await runningFeatures.Stop().ConfigureAwait(false);
                 // Can throw
                 await transportInfrastructure.Stop().ConfigureAwait(false);
             }
@@ -107,7 +107,7 @@ namespace NServiceBus
 
         IBuilder builder;
         List<TransportReceiver> receivers;
-        FeatureComponent featureComponent;
+        RunningFeatures runningFeatures;
         IMessageSession messageSession;
         TransportInfrastructure transportInfrastructure;
 

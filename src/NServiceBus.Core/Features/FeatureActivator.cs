@@ -3,8 +3,6 @@ namespace NServiceBus.Features
     using System;
     using System.Collections.Generic;
     using System.Linq;
-    using System.Threading.Tasks;
-    using ObjectBuilder;
     using Settings;
 
     class FeatureActivator
@@ -17,6 +15,11 @@ namespace NServiceBus.Features
         internal List<FeatureDiagnosticData> Status
         {
             get { return features.Select(f => f.Diagnostics).ToList(); }
+        }
+
+        public IList<FeatureInfo> ActiveFeatures
+        {
+            get { return features.Where(f => f.Feature.IsActive).ToList(); }
         }
 
         public void Add(Feature feature)
@@ -59,26 +62,6 @@ namespace NServiceBus.Features
             }
 
             return features.Select(t => t.Diagnostics).ToArray();
-        }
-
-        public async Task StartFeatures(IBuilder builder, IMessageSession session)
-        {
-            foreach (var feature in features.Where(f => f.Feature.IsActive))
-            {
-                foreach (var taskController in feature.TaskControllers)
-                {
-                    await taskController.Start(builder, session).ConfigureAwait(false);
-                }
-            }
-        }
-
-        public Task StopFeatures(IMessageSession session)
-        {
-            var featureStopTasks = features.Where(f => f.Feature.IsActive)
-                .SelectMany(f => f.TaskControllers)
-                .Select(task => task.Stop(session));
-
-            return Task.WhenAll(featureStopTasks);
         }
 
         static List<FeatureInfo> Sort(IEnumerable<FeatureInfo> features)
@@ -208,7 +191,7 @@ namespace NServiceBus.Features
         List<FeatureInfo> features = new List<FeatureInfo>();
         SettingsHolder settings;
 
-        class FeatureInfo
+        public class FeatureInfo
         {
             public FeatureInfo(Feature feature, FeatureDiagnosticData diagnostics)
             {
