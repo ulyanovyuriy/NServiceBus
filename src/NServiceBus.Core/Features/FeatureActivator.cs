@@ -5,7 +5,6 @@ namespace NServiceBus.Features
     using System.Linq;
     using System.Threading.Tasks;
     using ObjectBuilder;
-    using Pipeline;
     using Settings;
 
     class FeatureActivator
@@ -36,7 +35,7 @@ namespace NServiceBus.Features
             }));
         }
 
-        public FeatureDiagnosticData[] SetupFeatures(IConfigureComponents container, PipelineSettings pipelineSettings, RoutingComponent routing)
+        public FeatureDiagnosticData[] SetupFeatures(FeatureConfigurationContext featureConfigurationContext)
         {
             // featuresToActivate is enumerated twice because after setting defaults some new features might got activated.
             var sourceFeatures = Sort(features);
@@ -56,10 +55,8 @@ namespace NServiceBus.Features
 
             foreach (var feature in enabledFeatures)
             {
-                ActivateFeature(feature, enabledFeatures, container, pipelineSettings, routing);
+                ActivateFeature(feature, enabledFeatures, featureConfigurationContext);
             }
-
-            settings.PreventChanges();
 
             return features.Select(t => t.Diagnostics).ToArray();
         }
@@ -160,7 +157,7 @@ namespace NServiceBus.Features
             return false;
         }
 
-        bool ActivateFeature(FeatureInfo featureInfo, List<FeatureInfo> featuresToActivate, IConfigureComponents container, PipelineSettings pipelineSettings, RoutingComponent routing)
+        bool ActivateFeature(FeatureInfo featureInfo, List<FeatureInfo> featuresToActivate, FeatureConfigurationContext featureConfigurationContext)
         {
             if (featureInfo.Feature.IsActive)
             {
@@ -177,23 +174,22 @@ namespace NServiceBus.Features
                 {
                     dependentFeaturesToActivate.Add(dependency);
                 }
-                return dependentFeaturesToActivate.Aggregate(false, (current, f) => current | ActivateFeature(f, featuresToActivate, container, pipelineSettings, routing));
+                return dependentFeaturesToActivate.Aggregate(false, (current, f) => current | ActivateFeature(f, featuresToActivate, featureConfigurationContext));
             };
             var featureType = featureInfo.Feature.GetType();
             if (featureInfo.Feature.Dependencies.All(dependencyActivator))
             {
                 featureInfo.Diagnostics.DependenciesAreMet = true;
 
-                var context = new FeatureConfigurationContext(settings, container, pipelineSettings, routing);
-                if (!HasAllPrerequisitesSatisfied(featureInfo.Feature, featureInfo.Diagnostics, context))
+                if (!HasAllPrerequisitesSatisfied(featureInfo.Feature, featureInfo.Diagnostics, featureConfigurationContext))
                 {
                     settings.MarkFeatureAsDeactivated(featureType);
                     return false;
                 }
                 settings.MarkFeatureAsActive(featureType);
-                featureInfo.Feature.SetupFeature(context);
-                featureInfo.TaskControllers = context.TaskControllers;
-                featureInfo.Diagnostics.StartupTasks = context.TaskControllers.Select(d => d.Name).ToList();
+                featureInfo.Feature.SetupFeature(featureConfigurationContext);
+                featureInfo.TaskControllers = featureConfigurationContext.TaskControllers;
+                featureInfo.Diagnostics.StartupTasks = featureConfigurationContext.TaskControllers.Select(d => d.Name).ToList();
                 featureInfo.Diagnostics.Active = true;
                 return true;
             }

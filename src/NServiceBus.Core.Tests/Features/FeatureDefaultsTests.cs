@@ -3,7 +3,9 @@
     using System.Collections.Generic;
     using System.Linq;
     using NServiceBus.Features;
+    using NServiceBus.Pipeline;
     using NUnit.Framework;
+    using ObjectBuilder;
     using Settings;
 
     [TestFixture]
@@ -54,7 +56,7 @@
             featureSettings.Add(featureThatIsEnabledByAnother);
             featureSettings.Add(new FeatureThatEnablesAnother());
 
-            featureSettings.SetupFeatures(null, null, null);
+            featureSettings.SetupFeatures(new TestableFeatureConfigurationContext());
 
             Assert.True(featureThatIsEnabledByAnother.DefaultCalled, "FeatureThatIsEnabledByAnother wasn't activated");
         }
@@ -86,7 +88,7 @@
             featureSettings.Add(level2);
             featureSettings.Add(level1);
 
-            featureSettings.SetupFeatures(null, null, null);
+            featureSettings.SetupFeatures(new TestableFeatureConfigurationContext());
 
             Assert.True(level1.IsActive, "Activate1 wasn't activated");
             Assert.True(level2.IsActive, "Activate2 wasn't activated");
@@ -118,7 +120,7 @@
 
             settings.EnableFeatureByDefault<MyFeature1>();
 
-            featureSettings.SetupFeatures(null, null, null);
+            featureSettings.SetupFeatures(new TestableFeatureConfigurationContext());
 
             Assert.True(dependingFeature.IsActive);
 
@@ -156,7 +158,7 @@
             settings.EnableFeatureByDefault<MyFeature2>();
             settings.EnableFeatureByDefault<MyFeature3>();
 
-            featureSettings.SetupFeatures(null, null, null);
+            featureSettings.SetupFeatures(new TestableFeatureConfigurationContext());
 
             Assert.True(dependingFeature.IsActive);
 
@@ -188,7 +190,7 @@
             featureSettings.Add(level2);
             featureSettings.Add(level1);
 
-            featureSettings.SetupFeatures(null, null, null);
+            featureSettings.SetupFeatures(new TestableFeatureConfigurationContext());
 
             Assert.True(level1.IsActive, "Level1 wasn't activated");
             Assert.True(level2.IsActive, "Level2 wasn't activated");
@@ -293,6 +295,13 @@
                 EnableByDefault();
                 DependsOnAtLeastOne(typeof(MyFeature1), typeof(MyFeature2), typeof(MyFeature3));
             }
+        }
+    }
+
+    class TestableFeatureConfigurationContext : FeatureConfigurationContext
+    {
+        public TestableFeatureConfigurationContext(ReadOnlySettings settings = null, IConfigureComponents container = null, PipelineSettings pipelineSettings = null, RoutingComponent routing = null) : base(settings, container, pipelineSettings, routing)
+        {
         }
     }
 }

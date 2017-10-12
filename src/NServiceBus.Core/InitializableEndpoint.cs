@@ -37,7 +37,6 @@ namespace NServiceBus
                 .Where(IsConcrete)
                 .ToList();
 
-            var featureActivator = BuildFeatureActivator(concreteTypes);
 
             ConfigRunBeforeIsFinalized(concreteTypes);
 
@@ -55,8 +54,12 @@ namespace NServiceBus
                 settings.GetOrCreate<Publishers>());
             routing.Initialize(settings, transportInfrastructure, pipelineSettings);
 
-            var featureStats = featureActivator.SetupFeatures(container, pipelineSettings, routing);
-            settings.AddStartupDiagnosticsSection("Features", featureStats);
+            var featureConfigurationContext = new FeatureConfigurationContext(settings, container, pipelineSettings, routing);
+            var featureComponent = new FeatureComponent(settings, builder);
+
+            featureComponent.Initialize(concreteTypes, featureConfigurationContext);
+
+            settings.PreventChanges();
 
             pipelineConfiguration.RegisterBehaviorsInContainer(container);
 
@@ -73,7 +76,7 @@ namespace NServiceBus
 
             await RunInstallers(concreteTypes, username).ConfigureAwait(false);
 
-            var startableEndpoint = new StartableEndpoint(settings, builder, featureActivator, pipelineConfiguration, new EventAggregator(settings.Get<NotificationSubscriptions>()), transportInfrastructure, receiveInfrastructure, criticalError);
+            var startableEndpoint = new StartableEndpoint(settings, builder, featureComponent, pipelineConfiguration, new EventAggregator(settings.Get<NotificationSubscriptions>()), transportInfrastructure, receiveInfrastructure, criticalError);
             return startableEndpoint;
         }
 
@@ -94,21 +97,6 @@ namespace NServiceBus
         static bool IsIWantToRunBeforeConfigurationIsFinalized(Type type)
         {
             return typeof(IWantToRunBeforeConfigurationIsFinalized).IsAssignableFrom(type);
-        }
-
-        FeatureActivator BuildFeatureActivator(IEnumerable<Type> concreteTypes)
-        {
-            var featureActivator = new FeatureActivator(settings);
-            foreach (var type in concreteTypes.Where(t => IsFeature(t)))
-            {
-                featureActivator.Add(type.Construct<Feature>());
-            }
-            return featureActivator;
-        }
-
-        static bool IsFeature(Type type)
-        {
-            return typeof(Feature).IsAssignableFrom(type);
         }
 
         void RegisterCriticalErrorHandler()

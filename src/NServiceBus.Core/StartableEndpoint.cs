@@ -14,12 +14,12 @@ namespace NServiceBus
 
     class StartableEndpoint : IStartableEndpoint
     {
-        public StartableEndpoint(SettingsHolder settings, IBuilder builder, FeatureActivator featureActivator, PipelineConfiguration pipelineConfiguration, IEventAggregator eventAggregator, TransportInfrastructure transportInfrastructure, TransportReceiveInfrastructure receiveInfrastructure, CriticalError criticalError)
+        public StartableEndpoint(SettingsHolder settings, IBuilder builder, FeatureComponent featureComponent, PipelineConfiguration pipelineConfiguration, IEventAggregator eventAggregator, TransportInfrastructure transportInfrastructure, TransportReceiveInfrastructure receiveInfrastructure, CriticalError criticalError)
         {
             this.criticalError = criticalError;
             this.settings = settings;
             this.builder = builder;
-            this.featureActivator = featureActivator;
+            this.featureComponent = featureComponent;
             this.pipelineConfiguration = pipelineConfiguration;
             this.eventAggregator = eventAggregator;
             this.transportInfrastructure = transportInfrastructure;
@@ -42,9 +42,9 @@ namespace NServiceBus
             var receivers = CreateReceivers(mainPipeline);
             await InitializeReceivers(receivers).ConfigureAwait(false);
 
-            var featureRunner = await StartFeatures(messageSession).ConfigureAwait(false);
+            await featureComponent.Start(messageSession).ConfigureAwait(false);
 
-            var runningInstance = new RunningEndpointInstance(settings, builder, receivers, featureRunner, messageSession, transportInfrastructure);
+            var runningInstance = new RunningEndpointInstance(settings, builder, receivers, featureComponent, messageSession, transportInfrastructure);
             // set the started endpoint on CriticalError to pass the endpoint to the critical error action
             criticalError.SetEndpoint(runningInstance);
 
@@ -66,13 +66,6 @@ namespace NServiceBus
             {
                 throw new Exception($"Pre start-up check failed: {result.ErrorMessage}");
             }
-        }
-
-        async Task<FeatureRunner> StartFeatures(IMessageSession session)
-        {
-            var featureRunner = new FeatureRunner(featureActivator);
-            await featureRunner.Start(builder, session).ConfigureAwait(false);
-            return featureRunner;
         }
 
         static async Task InitializeReceivers(List<TransportReceiver> receivers)
@@ -177,7 +170,7 @@ namespace NServiceBus
 
         IMessageSession messageSession;
         IBuilder builder;
-        FeatureActivator featureActivator;
+        FeatureComponent featureComponent;
 
         IPipelineCache pipelineCache;
         PipelineConfiguration pipelineConfiguration;
