@@ -155,10 +155,12 @@ namespace NServiceBus
             container.ConfigureComponent<IBuilder>(_ => b, DependencyLifecycle.SingleInstance);
         }
 
+
+        bool ShouldRunInstallers => settings.GetOrDefault<bool>("Installers.Enable");
+
         async Task RunInstallers(IEnumerable<Type> concreteTypes, string username)
         {
-            var shouldRunInstaller = settings.GetOrDefault<bool>("Installers.Enable");
-            if (!shouldRunInstaller)
+            if (!ShouldRunInstallers)
             {
                 return;
             }
@@ -173,10 +175,10 @@ namespace NServiceBus
                 await installer.Install(username).ConfigureAwait(false);
             }
         }
-
+        
         Task CreateQueuesIfNecessary(TransportReceiveInfrastructure receiveInfrastructure, string username)
         {
-            if (!settings.CreateQueues())
+            if (!ShouldRunInstallers || !settings.CreateQueues())
             {
                 return TaskEx.CompletedTask;
             }
